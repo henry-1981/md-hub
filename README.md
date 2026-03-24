@@ -16,7 +16,7 @@
 ## 설치
 
 ```bash
-pip install md-hub
+pip install git+https://github.com/henry-1981/md-hub.git
 playwright install chromium
 ```
 
