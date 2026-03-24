@@ -1,55 +1,226 @@
 #!/usr/bin/env bash
-# md-hub setup — install all dependencies
-set -e
-cd "$(dirname "$0")"
+# md-hub setup — document ecosystem one-click setup
+# Usage: ./setup.sh [--mcp-target <path>]
+#
+# --mcp-target: .mcp.json merge target (default: ~/.claude/.mcp.json)
 
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m'
+set +e
 
-ok()   { echo -e "${GREEN}[OK]${NC} $1"; }
-fail() { echo -e "${RED}[FAIL]${NC} $1"; }
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MCP_TARGET="${HOME}/.claude/.mcp.json"
+SUMMARY=()
 
-echo "=== md-hub setup ==="
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --mcp-target) MCP_TARGET="$2"; shift 2 ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
+    esac
+done
 
-# pandoc
-if command -v pandoc &>/dev/null; then
-  ok "pandoc"
-else
-  echo "pandoc 설치 중..."
-  winget install --id JohnMacFarlane.Pandoc -e --accept-source-agreements --accept-package-agreements 2>/dev/null \
-    && ok "pandoc" || fail "pandoc — 수동 설치: https://pandoc.org/installing.html"
-fi
+info()  { echo "[INFO]  $1"; }
+warn()  { echo "[WARN]  $1"; }
+ok()    { echo "[OK]    $1"; SUMMARY+=("✓ $1"); }
+skip()  { echo "[SKIP]  $1"; SUMMARY+=("- $1 (skipped)"); }
+fail()  { echo "[FAIL]  $1"; SUMMARY+=("✗ $1"); }
 
-# Java
-if command -v java &>/dev/null; then
-  ok "java"
-else
-  echo "Java 설치 중..."
-  winget install --id Microsoft.OpenJDK.21 -e --accept-source-agreements --accept-package-agreements 2>/dev/null \
-    && ok "java (터미널 재시작 필요)" || fail "java — 수동 설치: https://adoptium.net"
-fi
+is_windows() {
+    [[ "$(uname -s)" == *"MINGW"* || "$(uname -s)" == *"MSYS"* || "$(uname -s)" == *"NT"* ]]
+}
 
-# Python package
-echo "md-hub 패키지 설치 중..."
-python -m pip install -e . --quiet \
-  && ok "md-hub" || fail "md-hub pip install"
+step_migrate() {
+    if command -v md-hub &>/dev/null; then
+        warn "md-hub v0.1.0 MCP server detected. Removing..."
+        pip uninstall -y markdown-hub 2>/dev/null
+        ok "markdown-hub PyPI package removed"
+        warn "If your .mcp.json has an 'md-hub' key, please remove it manually."
+    fi
+}
 
-# Playwright
-echo "Playwright Chromium 설치 중..."
-python -m playwright install chromium 2>/dev/null \
-  && ok "playwright chromium" || fail "playwright — python -m playwright install chromium"
+step_system_tools() {
+    info "Checking system tools..."
+    if command -v pandoc &>/dev/null; then
+        ok "pandoc $(pandoc --version | head -1)"
+    else
+        fail "pandoc not found — MD→DOCX will not work. Install: https://pandoc.org/installing.html"
+    fi
+    if command -v java &>/dev/null; then
+        ok "Java $(java -version 2>&1 | head -1)"
+    else
+        skip "Java not found — digital PDF→MD will use Claude Vision fallback"
+    fi
+    if command -v pdftoppm &>/dev/null; then
+        ok "poppler (pdftoppm found)"
+    else
+        skip "poppler not found — pymupdf fallback for PDF→image"
+    fi
+}
 
-# Verify
+step_python() {
+    info "Installing Python dependencies..."
+    if pip install -r "$SCRIPT_DIR/requirements.txt"; then
+        ok "Python dependencies installed"
+    else
+        fail "pip install failed"
+        return
+    fi
+    info "Installing Chromium for Playwright..."
+    if python -m playwright install chromium; then
+        ok "Chromium installed"
+    else
+        fail "Chromium install failed — MD→PDF and MD→PPTX will not work"
+    fi
+}
+
+step_nodejs() {
+    if ! command -v node &>/dev/null; then
+        fail "Node.js not found — presentation (PPTX) will not work"
+        return
+    fi
+    info "Installing Node.js dependencies for presentation..."
+    if (cd "$SCRIPT_DIR/presentation" && npm install); then
+        ok "Node.js dependencies installed"
+    else
+        fail "npm install failed"
+    fi
+}
+
+step_hwp() {
+    if ! is_windows; then
+        skip "HWP — Windows only (current: $(uname -s))"
+        return
+    fi
+    if [ -d "/c/Program Files (x86)/HNC" ] || [ -d "/c/Program Files/HNC" ]; then
+        info "한컴오피스 detected"
+        if [ ! -d "$HOME/tools/hwp-mcp" ]; then
+            info "Cloning hwp-mcp..."
+            git clone https://github.com/jkf87/hwp-mcp.git "$HOME/tools/hwp-mcp"
+            (cd "$HOME/tools/hwp-mcp" && python -m venv .venv && .venv/Scripts/pip install -r requirements.txt)
+        fi
+        ok "HWP MCP ready"
+    else
+        skip "HWP — 한컴오피스 not detected"
+    fi
+}
+
+step_skills() {
+    info "Registering skills to ~/.claude/skills/..."
+    mkdir -p "$HOME/.claude/skills"
+    for skill_dir in "$SCRIPT_DIR"/skills/*/; do
+        skill_name=$(basename "$skill_dir")
+        target="$HOME/.claude/skills/$skill_name"
+        if [ -e "$target" ]; then
+            skip "Skill '$skill_name' already exists at $target"
+        else
+            if is_windows; then
+                if ln -s "$skill_dir" "$target" 2>/dev/null; then
+                    ok "Skill '$skill_name' linked"
+                else
+                    cp -r "$skill_dir" "$target"
+                    ok "Skill '$skill_name' copied (symlink unavailable)"
+                fi
+            else
+                ln -s "$skill_dir" "$target"
+                ok "Skill '$skill_name' linked"
+            fi
+        fi
+    done
+}
+
+step_mcp() {
+    info "Merging MCP config into $MCP_TARGET..."
+    if [ ! -f "$MCP_TARGET" ]; then
+        mkdir -p "$(dirname "$MCP_TARGET")"
+        python -c "
+import json
+data = {'mcpServers': {'word': {'command': 'uvx', 'args': ['--from', 'office-word-mcp-server==1.1.11', 'word_mcp_server']}}}
+with open('$MCP_TARGET', 'w') as f:
+    json.dump(data, f, indent=2)
+"
+        ok ".mcp.json created with word MCP"
+    else
+        if python -c "import json; d=json.load(open('$MCP_TARGET')); exit(0 if 'word' in d.get('mcpServers',{}) else 1)" 2>/dev/null; then
+            skip "word MCP already registered in $MCP_TARGET"
+        else
+            python -c "
+import json
+with open('$MCP_TARGET') as f:
+    data = json.load(f)
+data.setdefault('mcpServers', {})
+data['mcpServers']['word'] = {'command': 'uvx', 'args': ['--from', 'office-word-mcp-server==1.1.11', 'word_mcp_server']}
+with open('$MCP_TARGET', 'w') as f:
+    json.dump(data, f, indent=2)
+"
+            ok "word MCP added to $MCP_TARGET"
+        fi
+    fi
+    if [ -d "$HOME/tools/hwp-mcp" ]; then
+        HWP_PYTHON="$(cd "$HOME/tools/hwp-mcp" && pwd)/.venv/Scripts/python.exe"
+        HWP_SCRIPT="$(cd "$HOME/tools/hwp-mcp" && pwd)/hwp_mcp_stdio_server.py"
+        if python -c "import json; d=json.load(open('$MCP_TARGET')); exit(0 if 'hwp' in d.get('mcpServers',{}) else 1)" 2>/dev/null; then
+            skip "hwp MCP already registered"
+        else
+            python -c "
+import json
+with open('$MCP_TARGET') as f:
+    data = json.load(f)
+data['mcpServers']['hwp'] = {
+    'command': '${HWP_PYTHON}'.replace('\\\\', '/'),
+    'args': ['${HWP_SCRIPT}'.replace('\\\\', '/')]
+}
+with open('$MCP_TARGET', 'w') as f:
+    json.dump(data, f, indent=2)
+"
+            ok "hwp MCP added to $MCP_TARGET"
+        fi
+    fi
+}
+
+step_env() {
+    info "Setting MD_HUB_HOME environment variable..."
+    SHELL_RC=""
+    if [ -f "$HOME/.bashrc" ]; then
+        SHELL_RC="$HOME/.bashrc"
+    elif [ -f "$HOME/.zshrc" ]; then
+        SHELL_RC="$HOME/.zshrc"
+    elif [ -f "$HOME/.bash_profile" ]; then
+        SHELL_RC="$HOME/.bash_profile"
+    fi
+    if [ -z "$SHELL_RC" ]; then
+        SHELL_RC="$HOME/.bashrc"
+        touch "$SHELL_RC"
+    fi
+    if grep -q "MD_HUB_HOME" "$SHELL_RC" 2>/dev/null; then
+        skip "MD_HUB_HOME already set in $SHELL_RC"
+    else
+        echo "" >> "$SHELL_RC"
+        echo "# md-hub document ecosystem" >> "$SHELL_RC"
+        echo "export MD_HUB_HOME=\"$SCRIPT_DIR\"" >> "$SHELL_RC"
+        ok "MD_HUB_HOME=$SCRIPT_DIR added to $SHELL_RC"
+    fi
+    export MD_HUB_HOME="$SCRIPT_DIR"
+}
+
+echo "========================================"
+echo "  md-hub setup — document ecosystem"
+echo "========================================"
 echo ""
-echo "=== 검증 ==="
-python -c "from md_hub.server import mcp; print('server OK')" 2>/dev/null && ok "MCP server" || fail "MCP server"
-python -c "from md_hub.engines.to_md import convert; print('to_md OK')" 2>/dev/null && ok "to_md engine" || fail "to_md"
-python -c "from md_hub.engines.to_docx import convert; print('to_docx OK')" 2>/dev/null && ok "to_docx engine" || fail "to_docx"
-python -c "from md_hub.engines.to_pdf import convert; print('to_pdf OK')" 2>/dev/null && ok "to_pdf engine" || fail "to_pdf"
+
+step_migrate
+step_system_tools
+step_python
+step_nodejs
+step_hwp
+step_skills
+step_mcp
+step_env
 
 echo ""
-echo "=== 사용법 ==="
-echo '.mcp.json에 추가:'
-echo '  { "mcpServers": { "md-hub": { "command": "md-hub" } } }'
+echo "========================================"
+echo "  Setup Summary"
+echo "========================================"
+for line in "${SUMMARY[@]}"; do
+    echo "  $line"
+done
+echo ""
+echo "Run 'source ~/.bashrc' (or restart terminal) to activate MD_HUB_HOME."
+echo "Done."
