@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "md_hub"))
 
 import pytest
-from md_hub.engines.to_pdf import convert, md_to_html, build_css
+from engines.to_pdf import convert, md_to_html, build_css
 
 
 def test_md_to_html():

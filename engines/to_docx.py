@@ -271,7 +271,7 @@ def convert(md_path: str, output_path: str, template_name: str = "default", **kw
         template_name: Template name to load from templates.yaml.
         **kwargs: Optional overrides (doc_code, etc.)
     """
-    from md_hub.template_loader import load_template
+    from engines.template_loader import load_template
     config = load_template(template_name)
 
     tmp_docx = tempfile.mktemp(suffix=".docx")

@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "md_hub"))
 
 import pytest
-from md_hub.engines.to_docx import convert
+from engines.to_docx import convert
 
 
 @pytest.fixture

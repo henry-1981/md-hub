@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "md_hub"))
 
-from md_hub.engines.to_md import convert
+from engines.to_md import convert
 
 
 def test_convert_txt_file():

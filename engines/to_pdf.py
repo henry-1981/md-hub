@@ -53,7 +53,7 @@ th {{
 
 def convert(md_path: str, output_path: str, template_name: str = "default") -> None:
     """Full pipeline: read MD, convert to HTML, render PDF via Playwright."""
-    from md_hub.template_loader import load_template
+    from engines.template_loader import load_template
     config = load_template(template_name)
 
     md_text = Path(md_path).read_text(encoding="utf-8")

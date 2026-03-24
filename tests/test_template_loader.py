@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "md_hub"))
 
-from md_hub.template_loader import deep_merge, load_template
+from engines.template_loader import deep_merge, load_template
 
 
 def test_deep_merge_basic():
