@@ -81,6 +81,13 @@ step_nodejs() {
         ok "Node.js dependencies installed"
     else
         fail "npm install failed"
+        return
+    fi
+    info "Building presentation TypeScript..."
+    if (cd "$SCRIPT_DIR/presentation" && ./node_modules/.bin/tsc); then
+        ok "presentation built"
+    else
+        fail "TypeScript build failed — presentation PPTX will not work"
     fi
 }
 
