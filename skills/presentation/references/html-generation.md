@@ -1,0 +1,84 @@
+# HTML Slide Generation Guide
+
+PPTX 경로에서 Claude Code가 HTML 슬라이드를 생성할 때의 규칙.
+
+## 필수 규격
+- Canvas: `width: 1920px; height: 1080px`
+- body에 `overflow: hidden` 필수
+- 각 파일은 self-contained (inline `<style>`)
+- 파일명: `slide-01.html`, `slide-02.html`, ...
+
+## 폰트
+```css
+@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+```
+
+## 디자인 모드
+
+### 자유 모드 (기본)
+CSS 제약 없음. gradient, glow, backdrop-filter, 반투명 모두 사용 가능.
+아키타입이 제시하는 방향 안에서 최대한 표현한다.
+상세 규칙: `src/html-pipeline/prompts/hybrid-free.md`
+
+### 프리셋 모드
+자유 모드 + 프리셋 CSS 변수 가드레일 적용.
+브랜드/규정 준수가 필요할 때 사용.
+상세 규칙: `src/html-pipeline/prompts/hybrid.md`
+
+양쪽 모두 Message Design 레이어 (4규칙 + 5안티패턴)가 CSS보다 먼저 적용된다.
+
+## 프리셋 CSS 변수
+`preset-to-css.ts`로 생성된 CSS variables를 `:root`에 주입.
+`var(--bg-primary)`, `var(--accent)`, `var(--text-primary)` 등 활용.
+
+## 슬라이드 구조 예시
+
+각 HTML 파일은 다음 구조를 따른다:
+
+```html
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920, height=1080">
+  <style>
+    /* CSS variables from preset */
+    :root { ... }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { width: 1920px; height: 1080px; overflow: hidden; }
+    /* Slide-specific styles */
+  </style>
+</head>
+<body>
+  <!-- Slide content -->
+</body>
+</html>
+```
+
+### 자유 모드 예시 (CSS 변수 없음)
+
+```html
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800;900&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { width: 1920px; height: 1080px; overflow: hidden; }
+    /* Archetype-driven styles — no preset variables */
+  </style>
+</head>
+<body>
+  <!-- Slide content -->
+</body>
+</html>
+```
+
+## 콘텐츠 가이드라인
+- 슬라이드당 하나의 명확한 메시지
+- 글머리 기호 텍스트: 간결하게, 10-15 단어
+- 테이블 셀: 짧은 구문
+- 슬라이드당 텍스트 50-100 단어 목표
+- 레이아웃은 메시지가 결정한다 — 메시지에 맞는 구도를 매번 새로 설계
