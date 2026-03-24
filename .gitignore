@@ -1,9 +1,13 @@
+# Python
 __pycache__/
 *.pyc
 *.egg-info/
-dist/
-build/
 .pytest_cache/
-*.pdf
-*.docx
-*.pptx
+
+# Node
+presentation/node_modules/
+presentation/dist/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,14 @@
+# Core
+python-docx>=1.1.0
+docxcompose>=1.4.0
+playwright>=1.40.0
+markitdown[all]
+pymupdf
+pyyaml>=6.0
+markdown-it-py>=3.0.0
+mdit_py_plugins>=0.4.0
+
+# Optional — uncomment as needed
+# opendataloader-pdf    # Digital PDF→MD (requires Java 21)
+# anthropic             # Scanned PDF→MD (Claude Vision)
+# pywin32               # MD→HWP (Windows + 한컴오피스)
