@@ -8,9 +8,9 @@
         ▼  convert_to_md
     Markdown (.md)
         │
-   ┌────┼────────┐
-   ▼    ▼        ▼
- DOCX  PDF     PPTX
+   ┌────┼────────┬────────┐
+   ▼    ▼        ▼        ▼
+ DOCX  PDF      HWP     PPTX
 ```
 
 ## 설치
@@ -46,6 +46,7 @@ bash setup.sh
 | `convert_to_md` | 기존 문서 → Markdown | PDF, DOCX, PPTX, XLSX, HTML... | MD 텍스트 |
 | `convert_to_docx` | Markdown → Word | .md 파일 + 템플릿 | .docx |
 | `convert_to_pdf` | Markdown → PDF (다이렉트) | .md 파일 + 템플릿 | .pdf |
+| `convert_to_hwp` | Markdown → 한글 | .md 파일 | .hwp |
 | `convert_to_pptx` | Markdown → 발표자료 | .md 파일 | .pptx |
 
 ## 사용 예시

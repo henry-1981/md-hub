@@ -29,6 +29,14 @@ async def convert_to_pdf(md_path: str, output_path: str, template: str = "defaul
 
 
 @mcp.tool()
+async def convert_to_hwp(md_path: str, output_path: str) -> str:
+    """Convert a Markdown file to HWP (한글). Requires Windows + 한컴오피스."""
+    from md_hub.engines.to_hwp import convert
+    convert(md_path, output_path)
+    return output_path
+
+
+@mcp.tool()
 async def convert_to_pptx(md_path: str, output_path: str, slide_count: int = 8, mood: str = "") -> str:
     """Convert a Markdown file to PPTX presentation."""
     from md_hub.engines.to_pptx import convert

@@ -32,6 +32,7 @@ dependencies = [
 [project.optional-dependencies]
 pdf = ["opendataloader-pdf"]
 vision = ["anthropic"]
+hwp = ["pywin32"]
 
 [project.urls]
 Homepage = "https://github.com/henry-1981/md-hub"
