@@ -1,0 +1,16 @@
+templates:
+  default:
+    font:
+      heading: Malgun Gothic
+      body: Malgun Gothic
+      size: 11pt
+    margin:
+      top: 2.54cm
+      bottom: 2.54cm
+      left: 3.17cm
+      right: 3.17cm
+    colors:
+      heading: "#1A1A1A"
+      body: "#333333"
+      table_header_bg: "#F2F2F2"
+    page: A4
